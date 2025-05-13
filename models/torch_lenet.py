@@ -37,6 +37,7 @@ class TorchLeNet89(nn.Module):
 
     def __init__(self):
         super().__init__()
+        #TODO: Implement original LeNet
 
     def forward(self, x):
         return x
