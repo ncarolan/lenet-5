@@ -6,12 +6,10 @@ import numpy as np
 import random
 import copy
 import torch
-import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torch.utils.data as data
-import torch.nn.functional as F
 
 def get_MNIST(is_train: bool = True):
 	mnist = torchvision.datasets.MNIST('data', train=is_train, download=True)

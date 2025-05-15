@@ -33,7 +33,7 @@ class TorchLeNet(nn.Module):
 
 
 class TorchLeNet89(nn.Module):
-    """ LeNet-5 in PyTorch with original 16x16 pixel inputs (classic MNIST).  """
+    """ LeNet in PyTorch with original 16x16 pixel inputs (original NIST).  """
 
     def __init__(self):
         super().__init__()
