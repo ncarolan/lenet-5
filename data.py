@@ -11,12 +11,41 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torch.utils.data as data
 
-def get_MNIST(is_train: bool = True):
-	mnist = torchvision.datasets.MNIST('data', train=is_train, download=True)
-	images = mnist.data.numpy() / 255.0
-	labels = mnist.targets.numpy()
+from typing import Tuple
+from torch.utils.data import Dataset, random_split
 
-	return images, labels
+def get_MNIST(val_split: float = 0.1) -> Tuple[Dataset, Dataset, Dataset]:
+	"""
+    Loads the MNIST dataset.
+
+    Args:
+        val_split (float): Fraction of training data to use for validation. Must be in [0, 1).
+
+    Returns:
+        Tuple[Dataset, Dataset, Dataset]: (train_dataset, test_dataset, val_dataset)
+    """
+	assert 0 <= val_split < 1, "val_split must be in the range [0, 1)."
+	mnist_train = torchvision.datasets.MNIST('data', train=True, download=True)
+
+    # Standardize data based on train split values
+	mean = mnist_train.data.float().mean() / 255
+	std = mnist_train.data.float().std() / 255
+	transform = transforms.Compose([
+    	transforms.ToTensor(),
+		transforms.Normalize(mean=[mean], std=[std]),
+	])
+
+	mnist_train = torchvision.datasets.MNIST(
+		'data', train=True, download=True, transform=transform)
+	mnist_test = torchvision.datasets.MNIST(
+		'data', train=False, download=True, transform=transform)
+
+	val_count = int(val_split * len(mnist_train))
+	train_count = len(mnist_train) - val_count
+	mnist_train, mnist_val = data.random_split(mnist_train, [train_count, val_count])
+
+	return mnist_train, mnist_test, mnist_val
+
 
 def import_MNIST(augment_data=True, duplicate_with_transform=False):
     """
