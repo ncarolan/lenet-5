@@ -1,6 +1,6 @@
 # LeNet-5
 
-![lenet5](LeCun98.png)
+![lenet5](src/res/LeCun98.png)
 [Image Source](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf)
 
 
