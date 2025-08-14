@@ -1,5 +1,5 @@
 '''
-Data helper methods for MNIST.
+Data loading and helper methods for MNIST.
 '''
 
 import numpy as np
@@ -14,98 +14,69 @@ import torch.utils.data as data
 from typing import Tuple
 from torch.utils.data import Dataset, random_split
 
-def get_MNIST(val_split: float = 0.1) -> Tuple[Dataset, Dataset, Dataset]:
-	"""
-    Loads the MNIST dataset.
+
+def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: int = 0, duplicate_with_augment: bool = False) -> Tuple[Dataset, Dataset, Dataset]:
+    """
+    Loads the MNIST dataset and optionally applies specified transformations.
 
     Args:
         val_split (float): Fraction of training data to use for validation. Must be in [0, 1).
+        rotation_degrees (int): Degrees of random rotation. If 0, no rotation is applied.
+        crop_padding (int): Pixels of padding for random cropping. If 0, no cropping is applied.
+        duplicate_with_augment (bool): Whether to duplicate images when appling augmentation.
 
     Returns:
         Tuple[Dataset, Dataset, Dataset]: (train_dataset, test_dataset, val_dataset)
     """
-	assert 0 <= val_split < 1, "val_split must be in the range [0, 1)."
-	mnist_train = torchvision.datasets.MNIST('data', train=True, download=True)
-
-    # Standardize data based on train split values
-	mean = mnist_train.data.float().mean() / 255
-	std = mnist_train.data.float().std() / 255
-	transform = transforms.Compose([
-    	transforms.ToTensor(),
-		transforms.Normalize(mean=[mean], std=[std]),
-	])
-
-	mnist_train = torchvision.datasets.MNIST(
-		'data', train=True, download=True, transform=transform)
-	mnist_test = torchvision.datasets.MNIST(
-		'data', train=False, download=True, transform=transform)
-
-	val_count = int(val_split * len(mnist_train))
-	train_count = len(mnist_train) - val_count
-	mnist_train, mnist_val = data.random_split(mnist_train, [train_count, val_count])
-
-	return mnist_train, mnist_test, mnist_val
-
-
-def import_MNIST(augment_data=True, duplicate_with_transform=False):
-    """
-    Loads the MNIST dataset and applies specified transformations, including optional data augmentation.
-
-    Parameters:
-    - augment_data : bool, optional (default=True). Whether to apply data augmentation to the training data.
-    - duplicate_with_transform : bool, optional (default=False). Whether to duplicate data when apply augmentation.
-
-    Returns:
-    - tuple:
-        - mnist_train : torch.utils.data.Dataset. The training dataset.
-        - mnist_test : torch.utils.data.Dataset. The test dataset.
-        - mnist_val : torch.utils.data.Dataset. The validation dataset, derived from the training data, without data augmentation.
-    """
+    assert 0 <= val_split < 1, "val_split must be in the range [0, 1)."
     mnist_train = torchvision.datasets.MNIST('data', train=True, download=True)
 
     # Standardize data based on train split values
     mean = mnist_train.data.float().mean() / 255
     std = mnist_train.data.float().std() / 255
 
-    transform_list = [transforms.ToTensor(
-    ), transforms.Normalize(mean=[mean], std=[std]),]
+    base_transforms_list = [
+    	transforms.ToTensor(),
+		transforms.Normalize(mean=[mean], std=[std]),
+	]
+    aug_transforms_list = []
 
-    # Add data augmentation if specified
-    if duplicate_with_transform:
-        augmentation_transform_list = [DuplicateWithRandomRotation(
-            5), DuplicateWithRandomCrop(28, padding=2),]
+    # Data Augmentation
+    if duplicate_with_augment:
+        if rotation_degrees > 0:
+            aug_transforms_list.append(DuplicateWithRandomRotation(rotation_degrees))
+        if crop_padding > 0:
+            aug_transforms_list.append(DuplicateWithRandomCrop(28, crop_padding))
     else:
-        augmentation_transform_list = [transforms.RandomRotation(
-            5, fill=(0,)), transforms.RandomCrop(28, padding=2),]
+        if rotation_degrees > 0:
+            aug_transforms_list.append(transforms.RandomRotation(rotation_degrees, fill=(0,)))
+        if crop_padding > 0:
+            aug_transforms_list.append(transforms.RandomCrop(28, crop_padding))
 
-    train_transforms = transforms.Compose(
-        transform_list+augmentation_transform_list if augment_data else transform_list)
-    test_transforms = transforms.Compose(transform_list)
-
-    # Load MNIST and apply transformations
+    train_transforms = transforms.Compose(base_transforms_list+aug_transforms_list)
+    test_transforms = transforms.Compose(base_transforms_list)
+    
     mnist_train = torchvision.datasets.MNIST(
-        'data', train=True, download=True, transform=train_transforms)
+		'data', train=True, download=True, transform=train_transforms)
     mnist_test = torchvision.datasets.MNIST(
-        'data', train=False, download=True, transform=test_transforms)
+		'data', train=False, download=True, transform=test_transforms)
 
-    # Create validation set by randomly sampling 10% of test set
-    train_count, val_count = len(
-        mnist_train) - int(0.1 * len(mnist_train)), int(0.1 * len(mnist_train))
-    mnist_train, mnist_val = data.random_split(
-        mnist_train, [train_count, val_count])
+    val_count = int(val_split * len(mnist_train))
+    train_count = len(mnist_train) - val_count
+    mnist_train, mnist_val = data.random_split(mnist_train, [train_count, val_count])
 
     # Remove augmentation from validation set
     mnist_val = copy.deepcopy(mnist_val)
     mnist_val.dataset.transform = test_transforms
 
-    # Inspect dataset
     print(f"Train: Dataset MNIST")
     print(f"    Number of datapoints: {len(mnist_train)}\n")
-    print(f'Test: {mnist_test}\n')
     print(f"Val: Dataset MNIST")
     print(f"    Number of datapoints: {len(mnist_val)}")
+    print(f'Test: {mnist_test}\n')
 
     return mnist_train, mnist_test, mnist_val
+
 
 class DuplicateWithRandomCrop:
     """
@@ -134,6 +105,7 @@ class DuplicateWithRandomCrop:
         original = img
         cropped = self.random_crop(img)
         return original, cropped
+
 
 class DuplicateWithRandomRotation:
     """
