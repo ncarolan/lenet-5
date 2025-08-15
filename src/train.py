@@ -36,10 +36,10 @@ def get_optimizer(optimizer: str, model_params, lr: float):
 def parse_args():
     parser = argparse.ArgumentParser(description="LeNet-5 CLI")
 
-    parser.add_argument("--framework", type=str, default="torch")
-    parser.add_argument("--val_split", type=float, default=0.1)
-    parser.add_argument("--rotation_degrees", type=int, default=0)
-    parser.add_argument("--crop_padding", type=int, default=0)
+    parser.add_argument("--framework", type=str, default="torch", choices=["torch", "jax"])
+    parser.add_argument("--val_split", type=float, default=0.1, help="Validation split")
+    parser.add_argument("--rotation_degrees", type=int, default=0, help="Image augmentation, random rotation range in degrees.")
+    parser.add_argument("--crop_padding", type=int, default=0, help="Image augmentation, padding in pixels for random crop.")
     parser.add_argument("--duplicate_with_augment", action="store_true", default=False)
     parser.add_argument(
         "--init",
