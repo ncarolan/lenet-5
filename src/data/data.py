@@ -29,7 +29,7 @@ def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: i
         Tuple[Dataset, Dataset, Dataset]: (train_dataset, test_dataset, val_dataset)
     """
     assert 0 <= val_split < 1, "val_split must be in the range [0, 1)."
-    mnist_train = torchvision.datasets.MNIST('data', train=True, download=True)
+    mnist_train = torchvision.datasets.MNIST('src/data', train=True, download=True)
 
     # Standardize data based on train split values
     mean = mnist_train.data.float().mean() / 255
@@ -57,9 +57,9 @@ def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: i
     test_transforms = transforms.Compose(base_transforms_list)
     
     mnist_train = torchvision.datasets.MNIST(
-		'data', train=True, download=True, transform=train_transforms)
+		'src/data', train=True, download=True, transform=train_transforms)
     mnist_test = torchvision.datasets.MNIST(
-		'data', train=False, download=True, transform=test_transforms)
+		'src/data', train=False, download=True, transform=test_transforms)
 
     val_count = int(val_split * len(mnist_train))
     train_count = len(mnist_train) - val_count
@@ -86,9 +86,9 @@ class DuplicateWithRandomCrop:
         """
         Initialize the transformation with the crop size.
 
-        Parameters:
-        - crop_size : tuple of int. The size (height, width) of the random crop to apply.
-        - padding : int, optional (default=0). The size of the padding to apply.
+        Args:
+            crop_size (tuple of int): The size (height, width) of the random crop to apply.
+            padding (int): The size of the padding to apply.
         """
         self.random_crop = transforms.RandomCrop(crop_size, padding)
 
@@ -96,11 +96,11 @@ class DuplicateWithRandomCrop:
         """
         Apply the transformation to an image.
 
-        Parameters:
-        - img : PIL.Image or Tensor
+        Args:
+            img (PIL.Image or Tensor)
 
         Returns:
-        - tuple : A tuple containing the original image and the randomly cropped version.
+            Tuple[PIL.Image, PIL.Image]: The original image and the randomly cropped version.
         """
         original = img
         cropped = self.random_crop(img)
@@ -115,11 +115,8 @@ class DuplicateWithRandomRotation:
         """
         Initialize the transformation with the rotation range.
 
-        Parameters:
-        - degrees : float or tuple of float
-            The range of degrees to select from. If a single float is provided, the rotation
-            range will be (-degrees, +degrees). If a tuple is provided, it specifies the
-            (min, max) rotation range.
+        Args:
+            degrees (float or tuple of float): The range of degrees to select from. If a single float is provided, the rotation range will be (-degrees, +degrees). If a tuple is provided, it specifies the (min, max) rotation range.
         """
         self.random_rotation = transforms.RandomRotation(degrees)
 
@@ -127,11 +124,11 @@ class DuplicateWithRandomRotation:
         """
         Apply the transformation to an image.
 
-        Parameters:
-        - img : PIL.Image or Tensor. The input image to transform.
+        Args:
+            img (PIL.Image or Tensor)
 
         Returns:
-        - tuple : A tuple containing the original image and the randomly rotated version.
+            Tuple[PIL.Image, PIL.Image]: The original image and the randomly rotated version.
         """
         original = img
         rotated = self.random_rotation(img)

@@ -9,14 +9,15 @@ from torch.utils.data import DataLoader
 import random
 import time
 
-import data
+import data.data as data
 from models.torch_lenet import TorchLeNet
 
 BATCH_SIZE = 64
 PATIENCE = 2  # epochs without val improvement
 NUM_WORKERS = 4
 
-def set_seed(seed) -> None:
+def set_seed(seed: int) -> None:
+    """Sets all random seeds."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -83,7 +84,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False)
 
     # framework, val_split, rotation_degrees, crop_padding, duplicate_with_augment, init, optimizer, activation, lr, seed
-    save_path = f'models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}.pth'
+    save_path = f'src/models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}.pth'
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     lenet5 = TorchLeNet(act_fn=args.activation, init=args.init).to(device)
@@ -106,6 +107,7 @@ def main():
         start_time = time.time()
         epoch_loss = 0
         val_loss = 0
+        val_correct = 0
 
         for x,y in train_loader:
             x,y = x.to(device), y.to(device)
@@ -130,7 +132,10 @@ def main():
                 loss = criterion(y_pred, y)
                 val_loss += loss
 
-        print(f'Epoch {epoch} | {epoch_duration:.2f}s | Train Loss: {epoch_loss / len(train_loader):.4f}, Val Loss: {val_loss / len(val_loader):.4f}')
+                val_preds = y_pred.argmax(axis=1)
+                val_correct += (val_preds == y).sum()
+
+        print(f'Epoch {epoch} | {epoch_duration:.2f}s | Train Loss: {epoch_loss / len(train_loader.dataset):.4f}, Val Loss: {val_loss / len(val_loader.dataset):.4f}, Val Accuracy: {100 * val_correct / len(val_loader.dataset):.2f}%')
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
