@@ -77,7 +77,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    train_dataset, test_dataset, val_dataset = data.get_MNIST(args.val_split, args.rotation_degrees, args.crop_padding, args.duplicate_with_augment)
+    train_dataset, test_dataset, val_dataset = data.get_MNIST(args.val_split, args.rotation_degrees, args.crop_padding, args.duplicate_with_augment, verbose=True)
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)

@@ -15,7 +15,7 @@ from typing import Tuple
 from torch.utils.data import Dataset, random_split
 
 
-def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: int = 0, duplicate_with_augment: bool = False) -> Tuple[Dataset, Dataset, Dataset]:
+def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: int = 0, duplicate_with_augment: bool = False, verbose: bool = False) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Loads the MNIST dataset and optionally applies specified transformations.
 
@@ -24,6 +24,7 @@ def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: i
         rotation_degrees (int): Degrees of random rotation. If 0, no rotation is applied.
         crop_padding (int): Pixels of padding for random cropping. If 0, no cropping is applied.
         duplicate_with_augment (bool): Whether to duplicate images when appling augmentation.
+        verbose (bool): If True, prints data details.
 
     Returns:
         Tuple[Dataset, Dataset, Dataset]: (train_dataset, test_dataset, val_dataset)
@@ -69,11 +70,12 @@ def get_MNIST(val_split: float = 0.1, rotation_degrees: int = 0, crop_padding: i
     mnist_val = copy.deepcopy(mnist_val)
     mnist_val.dataset.transform = test_transforms
 
-    print(f"Train: Dataset MNIST")
-    print(f"    Number of datapoints: {len(mnist_train)}\n")
-    print(f"Val: Dataset MNIST")
-    print(f"    Number of datapoints: {len(mnist_val)}")
-    print(f'Test: {mnist_test}\n')
+    if verbose:
+        print(f"Train: Dataset MNIST")
+        print(f"    Number of datapoints: {len(mnist_train)}\n")
+        print(f"Val: Dataset MNIST")
+        print(f"    Number of datapoints: {len(mnist_val)}")
+        print(f'Test: {mnist_test}\n')
 
     return mnist_train, mnist_test, mnist_val
 
