@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 import random
 import time
+import json
 
 import data.data as data
 from models.torch_lenet import TorchLeNet
@@ -84,7 +85,8 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False)
 
     # framework, val_split, rotation_degrees, crop_padding, duplicate_with_augment, init, optimizer, activation, lr, seed
-    save_path = f'src/models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}.pth'
+    save_name = f'src/models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}'
+    save_path = save_name + '.pth'
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     lenet5 = TorchLeNet(act_fn=args.activation, init=args.init).to(device)
@@ -153,6 +155,31 @@ def main():
     print(f'Saved model at {save_path}.')
 
     # Evaluate on test set
+    lenet5.eval()
+    test_correct = 0
+    test_count = 0
+
+    with torch.no_grad():
+        for x, y in test_loader:
+            outputs = lenet5(x)
+            _, predicted = torch.max(outputs, 1)
+            test_correct += (predicted == y).sum().item()
+            test_count += y.size(0)
+
+    test_accuracy = test_correct / test_count
+    print(f'Test Accuracy: {100 * test_accuracy:.2f}%')
+
+    # Save metadata
+    metadata_path = save_name + '.json'
+    metadata = {
+        "epochs": epoch,
+        "train_time": train_time,
+        "test_accuracy": test_accuracy
+    }
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=4)
+    print(f'Saved metadata to {metadata_path}.')
+
 
 if __name__ == '__main__':
     main()
