@@ -19,4 +19,10 @@ TODO
 TODO
 
 ### Adversarial Examples
-TODO
+The model implicitly learns representations of the MNIST images when trained on a classification objective. We can test the robustness of these representations by constructing *adversarial examples*. These examples are found by subtly perturbing actual digit images in a way that maximizes the error of our LeNet-5 classifier. Two *white-box* adversarial attacks, described below, are provided in this repository, with both untargeted (minimizes correct logit) and targeted (maximizes target class logit) implementations. 
+
+#### Fast Gradient Sign Method (FGSM)
+FGSM is a one-step attack that takes the gradient $\nabla_x L(x,y)$ of the input image with respect to the loss and adds a small perturbation $\epsilon$ in the direction of the gradient.
+
+#### Project Gradient Descent (PGD)
+PGD is an iterative attack, effectively an iterated version of FGSM.
