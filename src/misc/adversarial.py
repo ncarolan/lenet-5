@@ -6,23 +6,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-def l1_distance(img1: np.ndarray, img2: np.ndarray) -> float:
+def l1_distance_np(img1: np.ndarray, img2: np.ndarray) -> float:
     """Computes the L1 (Manhattan) distance between two images."""
     return np.sum(np.abs(img1.astype(np.float64) - img2.astype(np.float64)))
 
-def l1_distance(img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
-    """Computes the L1 (Manhattan) distance between two images. """
+def l1_distance_torch(img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
+    """Computes the L1 (Manhattan) distance between two images."""
     return torch.sum(torch.abs(img1.float() - img2.float()))
 
-def l2_distance(img1: np.ndarray, img2: np.ndarray) -> float:
+def l2_distance_np(img1: np.ndarray, img2: np.ndarray) -> float:
     """Compute the L2 (Euclidean) distance between two images."""
     return np.sqrt(np.sum((img1.astype(np.float64) - img2.astype(np.float64)) ** 2))
 
-def l2_distance(img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
+def l2_distance_torch(img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
     """Computes the L2 (Euclidean) distance between two images."""
     return torch.sqrt(torch.sum((img1.float() - img2.float()) ** 2))
 
-def fgsm(model: torch.nn.Module, image: torch.Tensor, label: int, epsilon: float):
+def fgsm(model: torch.nn.Module, image: torch.Tensor, label: int, epsilon: float) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Returns an adversarial example found with the fast gradient sign method.
 
@@ -37,7 +37,7 @@ def fgsm(model: torch.nn.Module, image: torch.Tensor, label: int, epsilon: float
     Returns:
         adversarial_image, perturbation (Tuple[torch.Tensor, torch.Tensor]): Modified image and the adversarial perturbation.
     """
-    if image.ndim == 3:      
+    if image.ndim == 3:
         image = image.unsqueeze(0)  # Add batch dim if needed
     image = image.clone().detach().requires_grad_(True)
 
@@ -48,11 +48,11 @@ def fgsm(model: torch.nn.Module, image: torch.Tensor, label: int, epsilon: float
 
     perturbation = epsilon * torch.sign(image.grad)
     adversarial_image = image + perturbation
-    adversarial_image = torch.clamp(adversarial_image, 0, 256)
-    
+    adversarial_image = torch.clamp(adversarial_image, 0, 255)
+
     return adversarial_image.detach(), perturbation.detach()
 
-def fgsm_targeted(model: torch.nn.Module, image: torch.Tensor, target: int, epsilon: float):
+def fgsm_targeted(model: torch.nn.Module, image: torch.Tensor, target: int, epsilon: float) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Returns a targeted adversarial example found with the fast gradient sign method.
 
@@ -76,13 +76,13 @@ def fgsm_targeted(model: torch.nn.Module, image: torch.Tensor, target: int, epsi
 
     perturbation = epsilon * torch.sign(image.grad.data)
     adversarial_image = image + perturbation
-    adversarial_image = torch.clamp(adversarial_image, 0, 256)
+    adversarial_image = torch.clamp(adversarial_image, 0, 255)
 
     return adversarial_image.detach(), perturbation.detach()
 
 
-def pgd(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: float, num_iter: int, label: int):
-    """ 
+def pgd(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: float, num_iter: int, label: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """
     Returns a untargeted adversarial example found with projected gradient descent.
 
     Args:
@@ -96,10 +96,10 @@ def pgd(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: floa
     Returns:
         adversarial_image, perturbation (Tuple[torch.Tensor, torch.Tensor]): Modified image and the adversarial perturbation.
     """
-    if image.ndim == 3:      
+    if image.ndim == 3:
         image = image.unsqueeze(0)  # Add batch dim if needed
     image = image.clone().detach().requires_grad_(True)
-    
+
     delta = torch.zeros_like(image, requires_grad=True)
     for t in range(num_iter):
         yp = model(image + delta)
@@ -108,12 +108,12 @@ def pgd(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: floa
         loss.backward()
         delta.data = (delta + alpha*delta.grad.detach().sign()).clamp(-epsilon,epsilon)
         delta.grad.zero_()
-        
+
     adversarial_image = image + delta
     return adversarial_image.detach(), delta.detach()
 
-def pgd_targeted(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: float, num_iter: int, y_target: int):
-    """ 
+def pgd_targeted(model: torch.nn.Module, image: torch.Tensor, epsilon: float, alpha: float, num_iter: int, y_target: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """
     Returns a targeted adversarial example found with projected gradient descent.
 
     Referencing https://adversarial-ml-tutorial.org/adversarial_examples/
@@ -129,10 +129,10 @@ def pgd_targeted(model: torch.nn.Module, image: torch.Tensor, epsilon: float, al
     Returns:
         adversarial_image, perturbation (Tuple[torch.Tensor, torch.Tensor]): Modified image and the adversarial perturbation.
     """
-    if image.ndim == 3:      
+    if image.ndim == 3:
         image = image.unsqueeze(0)  # Add batch dim if needed
     image = image.clone().detach().requires_grad_(True)
-    
+
     delta = torch.zeros_like(image, requires_grad=True)
     for t in range(num_iter):
         yp = model(image + delta)
@@ -141,6 +141,6 @@ def pgd_targeted(model: torch.nn.Module, image: torch.Tensor, epsilon: float, al
         loss.backward()
         delta.data = (delta + alpha*delta.grad.detach().sign()).clamp(-epsilon,epsilon)
         delta.grad.zero_()
-        
-    adversarial_image = image + delta
+
+    adversarial_image = torch.clamp(image + delta, 0, 255)
     return adversarial_image.detach(), delta.detach()
