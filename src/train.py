@@ -16,6 +16,7 @@ from models.torch_lenet import TorchLeNet
 BATCH_SIZE = 64
 PATIENCE = 2  # epochs without val improvement
 NUM_WORKERS = 4
+MAX_EPOCHS = 500
 
 def set_seed(seed: int) -> None:
     """Sets all random seeds."""
@@ -56,7 +57,7 @@ def parse_args():
             default="relu",
             choices=["relu", "tanh", "sigmoid"],
         )
-    parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")    
+    parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     parser.add_argument("--seed", type=int, default=12)
     
     args = parser.parse_args()
@@ -74,15 +75,16 @@ def parse_args():
     print(f"Random Seed:                {args.seed}")
     print("---------------------------------------------")
 
-    return parser.parse_args()
+    return args
 
 def main():
     args = parse_args()
+    set_seed(args.seed)
     train_dataset, test_dataset, val_dataset = data.get_MNIST(args.val_split, args.rotation_degrees, args.crop_padding, args.duplicate_with_augment, verbose=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
-    test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
-    val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
+    test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
+    val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
 
     # framework, val_split, rotation_degrees, crop_padding, duplicate_with_augment, init, optimizer, activation, lr, seed
     save_name = f'src/models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}'
@@ -104,7 +106,7 @@ def main():
     epochs_without_improvement = 0
     train_time = 0
 
-    for epoch in range(1, 100):
+    for epoch in range(1, MAX_EPOCHS+1):
         lenet5.train()
         start_time = time.time()
         epoch_loss = 0
@@ -112,15 +114,15 @@ def main():
         val_correct = 0
 
         for x,y in train_loader:
-            x,y = x.to(device), y.to(device)
+            x,y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             y_pred = lenet5(x)
             loss = criterion(y_pred, y)
             loss.backward()
             optimizer.step()
 
-            epoch_loss += loss
+            epoch_loss += loss.item()
 
         end_time = time.time()
         epoch_duration = end_time - start_time
@@ -129,19 +131,21 @@ def main():
         lenet5.eval()
         with torch.no_grad():
             for x,y in val_loader:
-                x,y = x.to(device), y.to(device)
+                x,y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
                 y_pred = lenet5(x)
                 loss = criterion(y_pred, y)
-                val_loss += loss
+                val_loss += loss.item()
 
                 val_preds = y_pred.argmax(axis=1)
-                val_correct += (val_preds == y).sum()
+                val_correct += (val_preds == y).sum().item()
 
-        print(f'Epoch {epoch} | {epoch_duration:.2f}s | Train Loss: {epoch_loss / len(train_loader.dataset):.4f}, Val Loss: {val_loss / len(val_loader.dataset):.4f}, Val Accuracy: {100 * val_correct / len(val_loader.dataset):.2f}%')
+        print(f'Epoch {epoch} | {epoch_duration:.2f}s | Train Loss: {epoch_loss / len(train_loader):.4f}, Val Loss: {val_loss / len(val_loader):.4f}, Val Accuracy: {100 * val_correct / len(val_loader.dataset):.2f}%')
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             epochs_without_improvement = 0
+            # Save best model checkpoint
+            torch.save(lenet5.state_dict(), save_path)
         else:
             epochs_without_improvement += 1
 
@@ -151,8 +155,8 @@ def main():
 
     print(f'Total training time: {train_time:.2f}s')
 
-    torch.save(lenet5.state_dict(), save_path)
-    print(f'Saved model at {save_path}.')
+    # Load best model for test evaluation
+    lenet5.load_state_dict(torch.load(save_path))
 
     # Evaluate on test set
     lenet5.eval()
@@ -161,6 +165,7 @@ def main():
 
     with torch.no_grad():
         for x, y in test_loader:
+            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
             outputs = lenet5(x)
             _, predicted = torch.max(outputs, 1)
             test_correct += (predicted == y).sum().item()
