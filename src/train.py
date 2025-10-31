@@ -15,7 +15,7 @@ from models.torch_lenet import TorchLeNet
 
 BATCH_SIZE = 64
 PATIENCE = 2  # epochs without val improvement
-NUM_WORKERS = 4
+NUM_WORKERS = 2
 MAX_EPOCHS = 500
 
 def set_seed(seed: int) -> None:
@@ -25,6 +25,23 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
+
+def collate_fn_duplicate(batch):
+    """Custom collate function for duplicate_with_augment mode.
+    Flattens tuples of (original, augmented) images into a single batch."""
+    images = []
+    labels = []
+    for item in batch:
+        img, label = item
+        if isinstance(img, tuple):
+            # Unpack (original, augmented) tuple
+            for im in img:
+                images.append(im)
+                labels.append(label)
+        else:
+            images.append(img)
+            labels.append(label)
+    return torch.stack(images), torch.tensor(labels)
 
 def get_optimizer(optimizer: str, model_params, lr: float):
     if optimizer == "sgd":
@@ -82,7 +99,10 @@ def main():
     set_seed(args.seed)
     train_dataset, test_dataset, val_dataset = data.get_MNIST(args.val_split, args.rotation_degrees, args.crop_padding, args.duplicate_with_augment, verbose=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
+    # Use custom collate function if duplicate_with_augment is enabled
+    collate_fn = collate_fn_duplicate if args.duplicate_with_augment else None
+
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
     val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
 
