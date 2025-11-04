@@ -12,11 +12,14 @@ import json
 
 import data.data as data
 from models.torch_lenet import TorchLeNet
+from misc.adversarial import fgsm
 
 BATCH_SIZE = 64
 PATIENCE = 2  # epochs without val improvement
 NUM_WORKERS = 2
 MAX_EPOCHS = 500
+ADVS_RATIO = 2  # Fraction of training batch to generate adversarial examples for, i.e. 2 -> 1/2
+ADVS_EPISLON = 1.0  # Epsilson for FGSM adversarial examples
 
 def set_seed(seed: int) -> None:
     """Sets all random seeds."""
@@ -76,7 +79,8 @@ def parse_args():
         )
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     parser.add_argument("--seed", type=int, default=12)
-    
+    parser.add_argument("--adversarial_training", action="store_true", default=False, help="Enable adversarial training with FGSM")
+
     args = parser.parse_args()
 
     print("---------------------------------------------")
@@ -90,6 +94,7 @@ def parse_args():
     print(f"Activation:                 {args.activation}")
     print(f"Learning Rate:              {args.lr}")
     print(f"Random Seed:                {args.seed}")
+    print(f"Adversarial Training:       {args.adversarial_training}")
     print("---------------------------------------------")
 
     return args
@@ -106,8 +111,10 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
     val_loader = DataLoader(val_dataset, batch_size=1000, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=True)
 
-    # framework, val_split, rotation_degrees, crop_padding, duplicate_with_augment, init, optimizer, activation, lr, seed
+    # framework, val_split, rotation_degrees, crop_padding, duplicate_with_augment, init, optimizer, activation, lr, seed, adversarial_training, adv_epsilon
     save_name = f'src/models/ckpts/lenet_{args.framework}_{args.val_split}_{args.rotation_degrees}_{args.crop_padding}_{args.duplicate_with_augment}_{args.init}_{args.optimizer}_{args.activation}_{args.lr}_{args.seed}'
+    if args.adversarial_training:
+        save_name += f'_{args.adversarial_training}'
     save_path = save_name + '.pth'
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -135,6 +142,22 @@ def main():
 
         for x,y in train_loader:
             x,y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+
+            # Adversarial training
+            if args.adversarial_training:
+                batch_size = x.size(0)
+                num_adv = batch_size // ADVS_RATIO
+
+                adv_images = []
+                for i in range(num_adv):
+                    adv_img, _ = fgsm(lenet5, x[i], y[i].item(), ADVS_EPISLON)
+                    adv_images.append(adv_img.squeeze(0))
+
+                if adv_images:
+                    adv_images = torch.stack(adv_images)
+                    # Concatenate adversarial examples with original batch
+                    x = torch.cat([x, adv_images], dim=0)
+                    y = torch.cat([y, y[:num_adv]], dim=0)
 
             optimizer.zero_grad(set_to_none=True)
             y_pred = lenet5(x)
