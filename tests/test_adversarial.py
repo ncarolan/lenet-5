@@ -24,30 +24,13 @@ from misc.adversarial import (
     pgd,
     pgd_targeted,
 )
-
-
-class SimpleModel(nn.Module):
-    """Simple model for testing adversarial attacks."""
-
-    def __init__(self, num_classes=10):
-        super().__init__()
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(28 * 28, 128)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(128, num_classes)
-
-    def forward(self, x):
-        x = self.flatten(x)
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        return x
+from models.torch_lenet import TorchLeNet
 
 
 @pytest.fixture
 def model():
-    """Create a simple model for testing."""
-    model = SimpleModel(num_classes=10)
+    """Create a LeNet model for testing."""
+    model = TorchLeNet(act_fn='relu', init='kaiming')
     model.eval()
     return model
 
@@ -233,7 +216,7 @@ class TestFGSMTargeted:
         target = 7
 
         with torch.no_grad():
-            orig_logits = model(sample_image)
+            orig_logits = model(sample_image.unsqueeze(0))
             orig_target_logit = orig_logits[0, target].item()
 
         adv_img, _ = fgsm_targeted(model, sample_image, target, epsilon=50.0)
@@ -359,7 +342,7 @@ class TestPGDTargeted:
         target = 7
 
         with torch.no_grad():
-            orig_logits = model(sample_image)
+            orig_logits = model(sample_image.unsqueeze(0))
             orig_target_logit = orig_logits[0, target].item()
 
         adv_img, _ = pgd_targeted(model, sample_image, epsilon=50.0, alpha=5.0, num_iter=20, y_target=target)
